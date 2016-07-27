@@ -11,7 +11,9 @@
     "email": "ILIKECHEESE@dpsw.info"
   },
   "scripts": {
-    "lint": "standard"
+    "lint": "standard",
+    "mocha": "mocha",
+    "test": "npm run lint && npm run mocha"
   },
   "dependencies": {
     "xlsx": ""
@@ -26,6 +28,8 @@
   },
   "version": "0.1.5",
   "devDependencies": {
+    "chai": "^3.5.0",
+    "mocha": "^2.5.3",
     "standard": "^7.1.2"
   }
 }

@@ -1,164 +1,130 @@
 #!/usr/bin/env node
 
 var xlsx = require('xlsx')
-var fs = require('fs')
 
-if (process.argv[2]) {
-  readXLSX(process.argv[2])
-}
+module.exports = function json2xlsx (obj, sheetname, order) {
+  if (!obj || typeof obj !== 'object') {
+    throw Error('json2xlsx - not an object')
+  }
 
-function readXLSX (filename) {
-  return require('xlsx').readFile(filename).Sheets
-}
+  if (order) {
+    obj = orderAttr(obj, order)
+  }
 
-function writeXLSX (filename, sheetname, obj, order) {
-  if (!obj) {
-    var indata = ''
-    process.stdin.on('readable', function () {
-      indata += process.stdin.read() || ''
-    })
-    process.stdin.on('end', processData)
+  var o
+
+  if (obj.push && sheetname) {
+    var ob = {}
+    ob[sheetname] = obj
+    o = ob
   } else {
-    processData()
+    o = obj
+  }
+  var wb = new Workbook()
+
+  for (var wsName in o) {
+    var sheetdispname = sheetname || wsName
+    var twodarr = o[wsName]
+    if (!twodarr[0]) continue
+
+    wb.SheetNames.push(sheetdispname)
+    if (!twodarr[0].push) {
+      twodarr = convertObjArray(twodarr)
+    }
+    var ws = sheetFromArrayOfArrays(twodarr)
+    wb.Sheets[sheetdispname] = ws
   }
 
-  function processData () {
-    try {
-      var t = obj || JSON.parse(indata)
-    } catch (e) {
-      return console.log(e)
-    }
+  return wb
+}
 
-    if (!t || typeof t !== 'object') {
-      throw Error('json2xlsx - not an object')
-    }
-
-    if (order) {
-      t = orderAttr(t, order)
-    }
-
-    var o
-
-    if (t.push && sheetname) {
-      var ob = {}
-      ob[sheetname] = t
-      o = ob
-    } else {
-      o = t
-    }
-    var wb = fs.existsSync(filename) ? xlsx.readFile(filename) : new Workbook()
-
-    for (var wsName in o) {
-      var sheetdispname = sheetname || wsName
-      var twodarr = o[wsName]
-      if (!twodarr[0]) continue
-
-      wb.SheetNames.push(sheetdispname)
-      if (!twodarr[0].push) {
-        twodarr = convertObjArray(twodarr)
+function orderAttr (obj, order) {
+  var newobj = []
+  for (var i = 0; i < obj.length; i++) {
+    var oldo = obj[i]
+    var newo = {}
+    order.forEach(function (field) {
+      if (oldo[field]) {
+        newo[field] = oldo[field]
+        delete oldo[field]
       }
-      var ws = sheetFromArrayOfArrays(twodarr)
-      wb.Sheets[sheetdispname] = ws
+    })
+    for (var j in oldo) {
+      newo[j] = oldo[j]
     }
-    xlsx.writeFile(wb, filename)
+    newobj[i] = newo
   }
+  return newobj
+}
 
-  function convertObjArray (objarray) {
-    try {
-      var arrarr = [Object.keys(objarray[0])]
-      for (var n = 0; n < objarray.length; n++) {
-        var row = []
-        for (var i in objarray[0]) {
-          row.push(objarray[n][i])
-        }
-        arrarr.push(row)
+function datenum (v, date1904) {
+  if (date1904) v += 1462
+  var epoch = Date.parse(v)
+  return (epoch - new Date(Date.UTC(1899, 11, 30))) / (24 * 60 * 60 * 1000)
+}
+
+function sheetFromArrayOfArrays (data, opts) {
+  var ws = {}
+  var range = {
+    s: {
+      c: 10000000,
+      r: 10000000
+    },
+    e: {
+      c: 0,
+      r: 0
+    }
+  }
+  for (var R = 0; R !== data.length; ++R) {
+    for (var C = 0; C !== data[R].length; ++C) {
+      if (range.s.r > R) range.s.r = R
+      if (range.s.c > C) range.s.c = C
+      if (range.e.r < R) range.e.r = R
+      if (range.e.c < C) range.e.c = C
+      var cell = {
+        v: data[R][C]
       }
-      return arrarr
-    } catch (e) {
-      console.log(objarray)
-      return [
-        []
-      ]
-    }
-  }
-
-  function datenum (v, date1904) {
-    if (date1904) v += 1462
-    var epoch = Date.parse(v)
-    return (epoch - new Date(Date.UTC(1899, 11, 30))) / (24 * 60 * 60 * 1000)
-  }
-
-  function sheetFromArrayOfArrays (data, opts) {
-    var ws = {}
-    var range = {
-      s: {
-        c: 10000000,
-        r: 10000000
-      },
-      e: {
-        c: 0,
-        r: 0
-      }
-    }
-    for (var R = 0; R !== data.length; ++R) {
-      for (var C = 0; C !== data[R].length; ++C) {
-        if (range.s.r > R) range.s.r = R
-        if (range.s.c > C) range.s.c = C
-        if (range.e.r < R) range.e.r = R
-        if (range.e.c < C) range.e.c = C
-        var cell = {
-          v: data[R][C]
-        }
-        if (cell.v == null) continue
-        var cellRef = xlsx.utils.encode_cell({
-          c: C,
-          r: R
-        })
-
-        if (typeof cell.v === 'number') cell.t = 'n'
-        else if (typeof cell.v === 'boolean') cell.t = 'b'
-        else if (cell.v instanceof Date) {
-          cell.t = 'n'
-          cell.z = xlsx.SSF._table[14]
-          cell.v = datenum(cell.v)
-        } else cell.t = 's'
-
-        ws[cellRef] = cell
-      }
-    }
-    if (range.s.c < 10000000) ws['!ref'] = xlsx.utils.encode_range(range)
-    return ws
-  }
-
-  function orderAttr (obj, order) {
-    var newobj = []
-    for (var i = 0; i < obj.length; i++) {
-      var oldo = obj[i]
-      var newo = {}
-      order.forEach(function (field) {
-        if (oldo[field]) {
-          newo[field] = oldo[field]
-          delete oldo[field]
-        }
+      if (cell.v == null) continue
+      var cellRef = xlsx.utils.encode_cell({
+        c: C,
+        r: R
       })
-      for (var j in oldo) {
-        newo[j] = oldo[j]
-      }
-      newobj[i] = newo
-    }
-    return newobj
-  }
 
-  function Workbook () {
-    if (!(this instanceof Workbook)) return new Workbook()
-    this.SheetNames = []
-    this.Sheets = {}
+      if (typeof cell.v === 'number') cell.t = 'n'
+      else if (typeof cell.v === 'boolean') cell.t = 'b'
+      else if (cell.v instanceof Date) {
+        cell.t = 'n'
+        cell.z = xlsx.SSF._table[14]
+        cell.v = datenum(cell.v)
+      } else cell.t = 's'
+
+      ws[cellRef] = cell
+    }
+  }
+  if (range.s.c < 10000000) ws['!ref'] = xlsx.utils.encode_range(range)
+  return ws
+}
+
+function convertObjArray (objarray) {
+  try {
+    var arrarr = [Object.keys(objarray[0])]
+    for (var n = 0; n < objarray.length; n++) {
+      var row = []
+      for (var i in objarray[0]) {
+        row.push(objarray[n][i])
+      }
+      arrarr.push(row)
+    }
+    return arrarr
+  } catch (e) {
+    return [
+      []
+    ]
   }
 }
 
-if (module && module.exports) {
-  module.exports = {
-    write: writeXLSX,
-    read: readXLSX
-  }
+function Workbook () {
+  if (!(this instanceof Workbook)) return new Workbook()
+  this.SheetNames = []
+  this.Sheets = {}
 }
