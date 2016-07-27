@@ -10,6 +10,9 @@
     "name": "C Borkert",
     "email": "ILIKECHEESE@dpsw.info"
   },
+  "scripts": {
+    "lint": "standard"
+  },
   "dependencies": {
     "xlsx": ""
   },
@@ -21,5 +24,8 @@
   "bin": {
     "json2xlsx": "json2xlsx.js"
   },
-  "version": "0.1.5"
+  "version": "0.1.5",
+  "devDependencies": {
+    "standard": "^7.1.2"
+  }
 }
