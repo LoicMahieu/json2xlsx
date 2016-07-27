@@ -12,8 +12,6 @@ function readXLSX (filename) {
 }
 
 function writeXLSX (filename, sheetname, obj, order) {
-  if (process.env.debug) console.log(arguments)
-
   if (!obj) {
     var indata = ''
     process.stdin.on('readable', function () {
@@ -39,10 +37,6 @@ function writeXLSX (filename, sheetname, obj, order) {
       t = orderAttr(t, order)
     }
 
-    if (process.env.debug) {
-      console.log(t)
-    }
-
     var o
 
     if (t.push && sheetname) {
@@ -65,9 +59,6 @@ function writeXLSX (filename, sheetname, obj, order) {
       }
       var ws = sheetFromArrayOfArrays(twodarr)
       wb.Sheets[sheetdispname] = ws
-      if (process.env.debug) {
-        console.log(filename, '/', sheetdispname)
-      }
     }
     xlsx.writeFile(wb, filename)
   }
@@ -81,9 +72,6 @@ function writeXLSX (filename, sheetname, obj, order) {
           row.push(objarray[n][i])
         }
         arrarr.push(row)
-      }
-      if (process.env.debug) {
-        console.log(arrarr.length + ' records')
       }
       return arrarr
     } catch (e) {
